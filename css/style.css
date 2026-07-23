@@ -209,3 +209,57 @@ input[type="checkbox"]{
   .memo-item{grid-template-columns:16px minmax(0,1fr)}
   .memo-item .btn{grid-column:2;justify-self:start;margin-top:4px}
 }
+
+
+/* Round recolhível */
+.round-summary{margin-bottom:2px}
+.round-body{padding-top:4px}
+.round-collapsed{padding-bottom:14px}
+.round-collapsed .round-header{margin-bottom:10px}
+.round-inner-card{box-shadow:none}
+
+/* Tema escuro */
+:root[data-theme="dark"]{
+  --primary:#75b7ee;
+  --primary-dark:#9bcdf4;
+  --bg:#111820;
+  --surface:#19232d;
+  --border:#344454;
+  --text:#eef4f8;
+  --muted:#aab8c5;
+  --success:#173f2b;
+  --success-text:#9de1b6;
+  --warning:#4a3b12;
+  --warning-text:#ffe194;
+  --danger:#4a2327;
+  --danger-text:#ffb1b1;
+  --info:#193a55;
+  --info-text:#b8dcfa;
+  --shadow:0 5px 18px rgba(0,0,0,.28);
+}
+
+:root[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .client-card,
+:root[data-theme="dark"] .detail-header,
+:root[data-theme="dark"] .round-card,
+:root[data-theme="dark"] .today-item,
+:root[data-theme="dark"] .modal-content{background:var(--surface);color:var(--text)}
+:root[data-theme="dark"] .btn-secondary{background:#22303c;color:var(--primary);border-color:var(--border)}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea{background:#111a22;color:var(--text);border-color:var(--border)}
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder{color:#81909e}
+:root[data-theme="dark"] .meta-box,
+:root[data-theme="dark"] .asin-table th{background:#131d26}
+:root[data-theme="dark"] .step,
+:root[data-theme="dark"] .memo-item{background:#131d26}
+:root[data-theme="dark"] .step.done{background:var(--success)}
+:root[data-theme="dark"] .task-card.pending{background:var(--danger)}
+:root[data-theme="dark"] .task-card.done{background:var(--success)}
+:root[data-theme="dark"] .empty{background:#151f28}
+:root[data-theme="dark"] .chip-neutral{background:#2b3946;color:#d2dce5}
+:root[data-theme="dark"] .progress{background:#2a3743}
+:root[data-theme="dark"] .toast{background:#e8f2f8;color:#15202a}
+:root[data-theme="dark"] a{color:#8bc8f5}
