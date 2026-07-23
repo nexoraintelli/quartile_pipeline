@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quartile Pipeline</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <div class="nav">
+      <button class="btn btn-primary" onclick="showView('dashboard')">📊 Pipeline</button>
+      <button class="btn btn-secondary" onclick="showView('today')">⚡ Hoje</button>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="exportBackup()">Exportar backup</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">Importar backup</button>
+      <input id="import-file" type="file" accept="application/json" class="hidden" onchange="importBackup(event)" />
+    </div>
+  </div>
+
+  <section id="dashboard-view">
+    <div class="page-header">
+      <h1>Pipeline Quartile</h1>
+      <p>Clientes, rounds, aprovações, ASINs e tarefas em um único fluxo.</p>
+    </div>
+
+    <div class="card daily-box">
+      <div class="card-title">Daily Memo</div>
+      <div id="daily-required"></div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <div class="card-title">Demandas do dia</div>
+        <div class="controls" style="margin:0">
+          <input id="new-demand" placeholder="Ex.: Revisar planilha 1C do cliente X" onkeydown="if(event.key==='Enter') addDemand()" />
+          <select id="demand-priority" style="max-width:150px">
+            <option value="normal">Normal</option>
+            <option value="alta">Alta</option>
+          </select>
+          <button class="btn btn-primary" onclick="addDemand()">Adicionar</button>
+        </div>
+        <div id="daily-demands" class="memo-list"></div>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin:20px 0">
+      <div class="card kpi"><div class="kpi-label">Total de clientes</div><div id="kpi-total" class="kpi-value">0</div></div>
+      <div class="card kpi"><div class="kpi-label">Em andamento</div><div id="kpi-progress" class="kpi-value">0</div></div>
+      <div class="card kpi"><div class="kpi-label">Aguardando cliente</div><div id="kpi-waiting" class="kpi-value">0</div></div>
+      <div class="card kpi"><div class="kpi-label">Rounds concluídos</div><div id="kpi-done" class="kpi-value">0</div></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="openClientForm()">+ Novo cliente</button>
+      <select id="client-filter" onchange="renderDashboard()" style="max-width:230px">
+        <option value="todos">Todos os status</option>
+        <option value="sem-round">Sem round ativo</option>
+        <option value="nao-iniciado">Não iniciado</option>
+        <option value="em-progresso">Em progresso</option>
+        <option value="aguardando-cliente">Aguardando cliente</option>
+        <option value="upload-pendente">Upload pendente</option>
+        <option value="concluido">Concluído</option>
+      </select>
+      <input id="client-search" placeholder="Buscar por nome, código ou produto..." oninput="renderDashboard()" />
+    </div>
+
+    <div id="client-list"></div>
+  </section>
+
+  <section id="today-view" class="hidden">
+    <div class="page-header">
+      <h1>Hoje</h1>
+      <p>O que está atrasado, pendente ou aguardando ação.</p>
+    </div>
+    <div id="today-content"></div>
+  </section>
+
+  <section id="client-view" class="hidden">
+    <div class="actions" style="margin-bottom:12px">
+      <button class="btn btn-secondary" onclick="showView('dashboard')">← Voltar</button>
+    </div>
+    <div id="client-detail"></div>
+  </section>
+</div>
+
+<div id="modal" class="modal hidden"><div class="modal-content" id="modal-content"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/app.js"></script>
+</body>
+</html>
