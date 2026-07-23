@@ -14,6 +14,42 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   let state = { version:4, clients:[], demandsByDate:{} };
   let selectedClientId = null;
 
+  const THEME_KEY = 'quartile_pipeline_theme';
+  const COLLAPSED_ROUNDS_KEY = 'quartile_pipeline_collapsed_rounds';
+
+  function getCollapsedRounds(){
+    try { return new Set(JSON.parse(localStorage.getItem(COLLAPSED_ROUNDS_KEY) || '[]')); }
+    catch { return new Set(); }
+  }
+
+  function isRoundCollapsed(roundId){ return getCollapsedRounds().has(roundId); }
+
+  function toggleRoundDetails(roundId){
+    const body=document.getElementById(`round-body-${roundId}`);
+    const button=document.getElementById(`round-toggle-${roundId}`);
+    if(!body||!button)return;
+    const collapsed=body.classList.toggle('hidden');
+    button.textContent=collapsed?'Expandir':'Recolher';
+    button.setAttribute('aria-expanded', String(!collapsed));
+    const rounds=getCollapsedRounds();
+    collapsed?rounds.add(roundId):rounds.delete(roundId);
+    localStorage.setItem(COLLAPSED_ROUNDS_KEY, JSON.stringify([...rounds]));
+  }
+
+  function applyTheme(theme){
+    document.documentElement.dataset.theme=theme;
+    const button=document.getElementById('theme-toggle');
+    if(button) button.textContent=theme==='dark'?'☀️ Fundo claro':'🌙 Fundo escuro';
+  }
+
+  function toggleTheme(){
+    const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
+    localStorage.setItem(THEME_KEY,next);
+    applyTheme(next);
+  }
+
+  function initTheme(){ applyTheme(localStorage.getItem(THEME_KEY)||'light'); }
+
   function uid(){ return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
   function localDateKey(date = new Date()){
     const y=date.getFullYear();
@@ -271,19 +307,22 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   function renderRound(client,round){
     const progress=calculateRoundProgress(round); const status=calculateRoundStatus(round);
     const asins=round.asins||[];
-    return `<div class="round-card">
+    const collapsed=isRoundCollapsed(round.id);
+    return `<div class="round-card ${collapsed?'round-collapsed':''}">
       <div class="round-header">
         <div><div class="round-title">Round ${round.number}</div><div class="round-sub">Início: ${formatDate(round.startDate)} • Prazo: ${formatDate(round.dueDate)} • ${progress.done}/${progress.total} etapas</div></div>
-        <div class="round-actions">${statusChip(status)}<button class="btn btn-secondary btn-small" onclick="openRoundEditor('${client.id}','${round.id}')">Editar dados</button><button class="btn btn-danger btn-small" onclick="deleteRound('${client.id}','${round.id}')">Excluir</button></div>
+        <div class="round-actions">${statusChip(status)}<button id="round-toggle-${round.id}" class="btn btn-secondary btn-small" aria-expanded="${!collapsed}" onclick="toggleRoundDetails('${round.id}')">${collapsed?'Expandir':'Recolher'}</button><button class="btn btn-secondary btn-small" onclick="openRoundEditor('${client.id}','${round.id}')">Editar dados</button><button class="btn btn-danger btn-small" onclick="deleteRound('${client.id}','${round.id}')">Excluir</button></div>
       </div>
-      <div class="progress"><div class="progress-fill" style="width:${progress.percent}%"></div></div><div class="progress-text">${progress.percent}% concluído</div>
-      <div class="steps">${STEP_DEFINITIONS.map(([key,label])=>`<label class="step ${round.steps?.[key]?'done':''}"><input type="checkbox" ${round.steps?.[key]?'checked':''} onchange="toggleStep('${client.id}','${round.id}','${key}')"><span>${label}</span></label>`).join('')}</div>
-      <div class="grid grid-2">
-        <div class="card" style="box-shadow:none"><div class="card-title">Links das planilhas</div>${roundLinks(round)}</div>
-        <div class="card" style="box-shadow:none"><div class="card-title">Observações</div><div style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(round.notes||'Nenhuma observação.')}</div></div>
+      <div class="round-summary"><div class="progress"><div class="progress-fill" style="width:${progress.percent}%"></div></div><div class="progress-text">${progress.percent}% concluído</div></div>
+      <div id="round-body-${round.id}" class="round-body ${collapsed?'hidden':''}">
+        <div class="steps">${STEP_DEFINITIONS.map(([key,label])=>`<label class="step ${round.steps?.[key]?'done':''}"><input type="checkbox" ${round.steps?.[key]?'checked':''} onchange="toggleStep('${client.id}','${round.id}','${key}')"><span>${label}</span></label>`).join('')}</div>
+        <div class="grid grid-2">
+          <div class="card round-inner-card"><div class="card-title">Links das planilhas</div>${roundLinks(round)}</div>
+          <div class="card round-inner-card"><div class="card-title">Observações</div><div style="font-size:13px;color:var(--muted);white-space:pre-wrap">${esc(round.notes||'Nenhuma observação.')}</div></div>
+        </div>
+        <div style="margin-top:14px"><div class="client-head"><div class="card-title" style="margin:0">ASINs deste round</div><button class="btn btn-primary btn-small" onclick="openAsinForm('${client.id}','${round.id}')">+ Adicionar ASIN</button></div>
+        ${asins.length?`<table class="asin-table"><thead><tr><th>ASIN</th><th>Produto</th><th>% vendas</th><th>Status</th><th>Datas</th><th>Ações</th></tr></thead><tbody>${asins.map(a=>`<tr><td><strong>${esc(a.code)}</strong></td><td>${esc(a.productName||'N/A')}</td><td>${Number.isFinite(a.salesShare)?a.salesShare+'%':'N/A'}</td><td>${esc(asinStatusLabel(a.status))}</td><td>Início: ${formatDate(a.startDate)}<br>Fim: ${formatDate(a.endDate)}</td><td><div class="inline-actions"><button class="btn btn-secondary btn-small" onclick="openAsinForm('${client.id}','${round.id}','${a.id}')">Editar</button><button class="btn btn-danger btn-small" onclick="deleteAsin('${client.id}','${round.id}','${a.id}')">Excluir</button></div></td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:18px;margin-top:10px">Nenhum ASIN cadastrado neste round.</div>'}</div>
       </div>
-      <div style="margin-top:14px"><div class="client-head"><div class="card-title" style="margin:0">ASINs deste round</div><button class="btn btn-primary btn-small" onclick="openAsinForm('${client.id}','${round.id}')">+ Adicionar ASIN</button></div>
-      ${asins.length?`<table class="asin-table"><thead><tr><th>ASIN</th><th>Produto</th><th>% vendas</th><th>Status</th><th>Datas</th><th>Ações</th></tr></thead><tbody>${asins.map(a=>`<tr><td><strong>${esc(a.code)}</strong></td><td>${esc(a.productName||'N/A')}</td><td>${Number.isFinite(a.salesShare)?a.salesShare+'%':'N/A'}</td><td>${esc(asinStatusLabel(a.status))}</td><td>Início: ${formatDate(a.startDate)}<br>Fim: ${formatDate(a.endDate)}</td><td><div class="inline-actions"><button class="btn btn-secondary btn-small" onclick="openAsinForm('${client.id}','${round.id}','${a.id}')">Editar</button><button class="btn btn-danger btn-small" onclick="deleteAsin('${client.id}','${round.id}','${a.id}')">Excluir</button></div></td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:18px;margin-top:10px">Nenhum ASIN cadastrado neste round.</div>'}</div>
     </div>`;
   }
 
@@ -412,5 +451,6 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const reader=new FileReader(); reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(!Array.isArray(parsed.clients))throw new Error();if(!confirm('Substituir os dados atuais pelo backup importado?'))return;state={version:4,clients:parsed.clients,demandsByDate:parsed.demandsByDate||{}};save();showView('dashboard');toast('Backup importado.');}catch{alert('Arquivo de backup inválido.');}finally{event.target.value='';}};reader.readAsText(file);
   }
 
+  initTheme();
   load();
   showView('dashboard');
