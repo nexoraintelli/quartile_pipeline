@@ -131,3 +131,81 @@
       .client-head,.today-item{flex-direction:column}
       .asin-table{display:block;overflow-x:auto}
     }
+
+/* Ajustes de compactação do Daily Memo */
+input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  min-width:16px;
+  padding:0;
+  margin:1px 0 0;
+  box-shadow:none;
+  accent-color:var(--primary);
+}
+
+.daily-box{
+  padding:14px;
+}
+
+.daily-box .card-title{
+  margin-bottom:10px;
+}
+
+.task-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+
+.task-card{
+  min-height:72px;
+  padding:10px 12px;
+  gap:8px;
+  align-items:flex-start;
+}
+
+.task-card > div{
+  min-width:0;
+  line-height:1.2;
+}
+
+.task-card strong{
+  display:block;
+  line-height:1.25;
+}
+
+.memo-list{
+  gap:6px;
+}
+
+.memo-item{
+  display:grid;
+  grid-template-columns:16px minmax(0,1fr) auto;
+  column-gap:10px;
+  align-items:center;
+  min-height:44px;
+  padding:8px 10px;
+}
+
+.memo-item span{
+  min-width:0;
+  width:auto;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+
+.memo-item .btn{
+  width:auto;
+  white-space:nowrap;
+  justify-self:end;
+}
+
+@media (max-width:1000px){
+  .task-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width:560px){
+  .task-grid{grid-template-columns:1fr}
+  .memo-item{grid-template-columns:16px minmax(0,1fr)}
+  .memo-item .btn{grid-column:2;justify-self:start;margin-top:4px}
+}
