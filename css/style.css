@@ -263,3 +263,20 @@ input[type="checkbox"]{
 :root[data-theme="dark"] .progress{background:#2a3743}
 :root[data-theme="dark"] .toast{background:#e8f2f8;color:#15202a}
 :root[data-theme="dark"] a{color:#8bc8f5}
+
+
+/* Avisos automáticos do próximo round */
+.next-round-panel{background:var(--surface);border:1px solid var(--border);border-left:5px solid var(--primary);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.next-round-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.next-round-heading strong{display:block;color:var(--primary);font-size:17px}
+.next-round-heading span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.next-round-list{display:grid;gap:8px}
+.next-round-item{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:var(--surface)}
+.next-round-item strong{color:var(--text)}
+.next-round-item p{font-size:13px;margin-top:3px;color:var(--text);line-height:1.35}
+.next-round-item p span{color:var(--muted);font-size:12px}
+.notice-overdue{border-left:5px solid #d94b4b;background:var(--danger)}
+.notice-today{border-left:5px solid #d49a16;background:var(--warning)}
+.notice-upcoming{border-left:5px solid var(--primary);background:var(--info)}
+.notice-missing{border-left:5px solid #8a6d3b;background:var(--warning)}
+@media(max-width:720px){.next-round-item,.next-round-heading{align-items:flex-start;flex-direction:column}.next-round-item .inline-actions{width:100%;flex-wrap:wrap}}
