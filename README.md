@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/30415357/README.md)
+[README.md](https://github.com/user-attachments/files/30420642/README.md)
 # Quartile Pipeline
 
 Sistema web para organizar clientes, rounds de otimização, ASINs, tarefas diárias e o fluxo de aprovação e upload.
@@ -43,3 +43,8 @@ Para uso em equipe e sincronização entre computadores, a próxima evolução r
 ## Pendências automáticas
 
 Cada round possui a etapa final **Verificar página do produto**, exibida logo após o upload. Todas as etapas não marcadas do round ativo aparecem automaticamente no Daily Memo. Ao concluir uma tarefa automática no Daily Memo, a etapa correspondente também é marcada no round.
+
+
+## Calendário de tarefas concluídas
+
+A aba **Calendário** permite registrar tarefas concluídas em qualquer data. Demandas manuais marcadas como concluídas e etapas de round concluídas pelo Daily Memo também são registradas automaticamente.
