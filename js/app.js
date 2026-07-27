@@ -12,8 +12,10 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     ['verificarPaginaProduto','Verificar página do produto']
   ];
 
-  let state = { version:4, clients:[], demandsByDate:{} };
+  let state = { version:5, clients:[], demandsByDate:{}, completedByDate:{} };
   let selectedClientId = null;
+  let calendarCursor = new Date();
+  let calendarSelectedDate = localDateKey();
 
   const THEME_KEY = 'quartile_pipeline_theme';
   const COLLAPSED_ROUNDS_KEY = 'quartile_pipeline_collapsed_rounds';
@@ -159,6 +161,8 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   }
 
   function normalizeStateData(){
+    state.demandsByDate=state.demandsByDate||{};
+    state.completedByDate=state.completedByDate||{};
     state.clients.forEach(client=>{
       client.rounds=(client.rounds||[]).map(round=>{
         round.steps=round.steps||{};
@@ -180,7 +184,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       const raw=localStorage.getItem(STORAGE_KEY);
       if(raw){
         const parsed=JSON.parse(raw);
-        state={version:4,clients:Array.isArray(parsed.clients)?parsed.clients:[],demandsByDate:parsed.demandsByDate||{}};
+        state={version:5,clients:Array.isArray(parsed.clients)?parsed.clients:[],demandsByDate:parsed.demandsByDate||{},completedByDate:parsed.completedByDate||{}};
       }else{
         const legacyRaw=localStorage.getItem('quartile_clientes_v3');
         if(legacyRaw){
@@ -196,7 +200,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     }catch(error){
       console.error(error);
       alert('Não foi possível carregar os dados salvos. Um novo banco local será iniciado.');
-      state={version:4,clients:[],demandsByDate:{}};
+      state={version:5,clients:[],demandsByDate:{},completedByDate:{}};
     }
   }
 
@@ -253,10 +257,11 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   }
 
   function showView(view){
-    ['dashboard','today','client'].forEach(v=>document.getElementById(`${v}-view`).classList.add('hidden'));
+    ['dashboard','today','calendar','client'].forEach(v=>document.getElementById(`${v}-view`).classList.add('hidden'));
     document.getElementById(`${view}-view`).classList.remove('hidden');
     if(view==='dashboard') renderDashboard();
     if(view==='today') renderToday();
+    if(view==='calendar') renderCalendar();
     if(view==='client') renderClientDetail();
   }
 
@@ -331,6 +336,24 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     save(); selectedClientId=clientId; showView('client');
   }
 
+  function completedItems(date){
+    if(!state.completedByDate[date]) state.completedByDate[date]=[];
+    return state.completedByDate[date];
+  }
+  function addCompletedRecord({date=localDateKey(),text,sourceType='manual',sourceId='',clientId='',roundId='',stepKey=''}){
+    if(!text)return;
+    const items=completedItems(date);
+    if(sourceId&&items.some(item=>item.sourceId===sourceId))return;
+    items.push({id:uid(),text,sourceType,sourceId,clientId,roundId,stepKey,completedAt:new Date().toISOString()});
+  }
+  function removeCompletedRecord(sourceId){
+    if(!sourceId)return;
+    Object.keys(state.completedByDate||{}).forEach(date=>{
+      state.completedByDate[date]=(state.completedByDate[date]||[]).filter(item=>item.sourceId!==sourceId);
+      if(!state.completedByDate[date].length)delete state.completedByDate[date];
+    });
+  }
+
   function getRoundPendingTasks(){
     const tasks=[];
     state.clients.forEach(client=>{
@@ -359,6 +382,12 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const round=findClient(clientId)?.rounds.find(r=>r.id===roundId);
     if(!round)return;
     round.steps[key]=true;
+    const stepLabel=STEP_DEFINITIONS.find(([stepKey])=>stepKey===key)?.[1]||key;
+    const client=findClient(clientId);
+    addCompletedRecord({
+      text:`${client?.name||'Cliente'} — Round ${round.number}: ${stepLabel}`,
+      sourceType:'round-step',sourceId:`round-${roundId}-${key}`,clientId,roundId,stepKey:key
+    });
     round.status=calculateRoundStatus(round);
     round.updatedAt=new Date().toISOString();
     if(key==='verificarPaginaProduto'&&!round.endDate)round.endDate=localDateKey();
@@ -425,8 +454,16 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     state.demandsByDate[localDateKey()].items.push({id:uid(),text,priority:document.getElementById('demand-priority').value,done:false});
     input.value=''; save(); renderDaily();
   }
-  function toggleDemand(id){ const item=state.demandsByDate[localDateKey()].items.find(i=>i.id===id); if(item)item.done=!item.done; save(); renderDaily(); }
-  function deleteDemand(id){ state.demandsByDate[localDateKey()].items=state.demandsByDate[localDateKey()].items.filter(i=>i.id!==id); save(); renderDaily(); }
+  function toggleDemand(id){
+    const date=localDateKey();
+    const item=state.demandsByDate[date].items.find(i=>i.id===id);
+    if(!item)return;
+    item.done=!item.done;
+    if(item.done) addCompletedRecord({date,text:item.text,sourceType:'daily-demand',sourceId:`demand-${id}`});
+    else removeCompletedRecord(`demand-${id}`);
+    save(); renderDaily();
+  }
+  function deleteDemand(id){ state.demandsByDate[localDateKey()].items=state.demandsByDate[localDateKey()].items.filter(i=>i.id!==id); removeCompletedRecord(`demand-${id}`); save(); renderDaily(); }
 
   function openClient(id){ selectedClientId=id; showView('client'); }
 
@@ -492,8 +529,14 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const round=newRound((c.rounds?.length||0)+1); round.startDate=localDateKey(); c.rounds.push(round); c.updatedAt=new Date().toISOString(); save(); renderClientDetail(); toast('Novo round criado.');
   }
   function toggleStep(clientId,roundId,key){
-    const r=findClient(clientId)?.rounds.find(x=>x.id===roundId); if(!r)return;
-    r.steps[key]=!r.steps[key]; r.status=calculateRoundStatus(r); r.updatedAt=new Date().toISOString();
+    const client=findClient(clientId);
+    const r=client?.rounds.find(x=>x.id===roundId); if(!r)return;
+    r.steps[key]=!r.steps[key];
+    const sourceId=`round-${roundId}-${key}`;
+    const stepLabel=STEP_DEFINITIONS.find(([stepKey])=>stepKey===key)?.[1]||key;
+    if(r.steps[key]) addCompletedRecord({text:`${client.name||'Cliente'} — Round ${r.number}: ${stepLabel}`,sourceType:'round-step',sourceId,clientId,roundId,stepKey:key});
+    else removeCompletedRecord(sourceId);
+    r.status=calculateRoundStatus(r); r.updatedAt=new Date().toISOString();
     if(r.steps.verificarPaginaProduto&&!r.endDate)r.endDate=localDateKey();
     if(!r.steps.verificarPaginaProduto)r.endDate='';
     save(); renderClientDetail();
@@ -575,6 +618,77 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
 
   function deleteClient(id){if(!confirm('Excluir este cliente, todos os rounds e ASINs?'))return;state.clients=state.clients.filter(c=>c.id!==id);save();showView('dashboard');}
 
+  function monthTitle(date){
+    const text=date.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    return text.charAt(0).toUpperCase()+text.slice(1);
+  }
+  function renderCalendar(){
+    const year=calendarCursor.getFullYear();
+    const month=calendarCursor.getMonth();
+    document.getElementById('calendar-month-title').textContent=monthTitle(calendarCursor);
+    const firstDay=new Date(year,month,1);
+    const lastDay=new Date(year,month+1,0);
+    const cells=[];
+    const previousLast=new Date(year,month,0).getDate();
+    for(let i=firstDay.getDay()-1;i>=0;i--) cells.push({date:new Date(year,month-1,previousLast-i),outside:true});
+    for(let day=1;day<=lastDay.getDate();day++) cells.push({date:new Date(year,month,day),outside:false});
+    let nextDay=1;
+    while(cells.length%7!==0||cells.length<42) cells.push({date:new Date(year,month+1,nextDay++),outside:true});
+    const today=localDateKey();
+    document.getElementById('calendar-grid').innerHTML=cells.map(cell=>{
+      const key=localDateKey(cell.date);
+      const count=(state.completedByDate[key]||[]).length;
+      return `<button class="calendar-day ${cell.outside?'outside':''} ${key===today?'today':''} ${key===calendarSelectedDate?'selected':''}" onclick="selectCalendarDate('${key}')">
+        <span class="calendar-day-number">${cell.date.getDate()}</span>
+        ${count?`<span class="calendar-task-count">${count} concluída${count===1?'':'s'}</span>`:''}
+      </button>`;
+    }).join('');
+    renderCalendarDay();
+  }
+  function renderCalendarDay(){
+    const date=parseLocalDate(calendarSelectedDate)||new Date();
+    document.getElementById('calendar-selected-title').textContent=date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+    const items=(state.completedByDate[calendarSelectedDate]||[]).slice().sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+    document.getElementById('calendar-day-items').innerHTML=items.length?`<div class="completed-task-list">${items.map(item=>`<div class="completed-task-item">
+      <span class="completed-check">✓</span>
+      <div><strong>${esc(item.text)}</strong><small>${item.sourceType==='round-step'?'Etapa de round':item.sourceType==='daily-demand'?'Demanda diária':'Registro manual'}</small></div>
+      <button class="btn btn-danger btn-small" onclick="deleteCompletedTask('${calendarSelectedDate}','${item.id}')">Excluir</button>
+    </div>`).join('')}</div>`:'<div class="empty calendar-empty">Nenhuma tarefa concluída neste dia.</div>';
+  }
+  function selectCalendarDate(date){
+    calendarSelectedDate=date;
+    const selected=parseLocalDate(date);
+    if(selected&&(selected.getMonth()!==calendarCursor.getMonth()||selected.getFullYear()!==calendarCursor.getFullYear())) calendarCursor=new Date(selected.getFullYear(),selected.getMonth(),1);
+    renderCalendar();
+  }
+  function changeCalendarMonth(delta){
+    calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+delta,1);
+    renderCalendar();
+  }
+  function goCalendarToday(){
+    calendarCursor=new Date();
+    calendarSelectedDate=localDateKey();
+    renderCalendar();
+  }
+  function openCompletedTaskForm(date=calendarSelectedDate){
+    openModal(`<div class="modal-header"><h2 style="color:var(--primary)">Registrar tarefa concluída</h2><button class="btn btn-secondary btn-small" onclick="closeModal()">Fechar</button></div>
+      <div class="grid grid-2">${field('Data','completed-task-date',date||localDateKey(),'date')}${field('Tarefa concluída *','completed-task-text','')}</div>
+      <div class="actions" style="margin-top:16px"><button class="btn btn-primary" onclick="saveCompletedTask()">Salvar no calendário</button><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button></div>`);
+  }
+  function saveCompletedTask(){
+    const date=val('completed-task-date');
+    const text=val('completed-task-text').trim();
+    if(!date||!text){alert('Informe a data e a tarefa concluída.');return;}
+    addCompletedRecord({date,text,sourceType:'manual'});
+    save();closeModal();calendarSelectedDate=date;calendarCursor=parseLocalDate(date)||new Date();renderCalendar();toast('Tarefa registrada no calendário.');
+  }
+  function deleteCompletedTask(date,id){
+    if(!confirm('Excluir este registro do calendário? A etapa original não será desmarcada.'))return;
+    state.completedByDate[date]=(state.completedByDate[date]||[]).filter(item=>item.id!==id);
+    if(!state.completedByDate[date].length)delete state.completedByDate[date];
+    save();renderCalendar();
+  }
+
   function renderToday(){
     const today=localDateKey();
     const overdue=[],dueToday=[],waiting=[],uploads=[],pageChecks=[];
@@ -613,7 +727,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   }
   function importBackup(event){
     const file=event.target.files[0]; if(!file)return;
-    const reader=new FileReader(); reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(!Array.isArray(parsed.clients))throw new Error();if(!confirm('Substituir os dados atuais pelo backup importado?'))return;state={version:4,clients:parsed.clients,demandsByDate:parsed.demandsByDate||{}};save();showView('dashboard');toast('Backup importado.');}catch{alert('Arquivo de backup inválido.');}finally{event.target.value='';}};reader.readAsText(file);
+    const reader=new FileReader(); reader.onload=()=>{try{const parsed=JSON.parse(reader.result);if(!Array.isArray(parsed.clients))throw new Error();if(!confirm('Substituir os dados atuais pelo backup importado?'))return;state={version:5,clients:parsed.clients,demandsByDate:parsed.demandsByDate||{},completedByDate:parsed.completedByDate||{}};save();showView('dashboard');toast('Backup importado.');}catch{alert('Arquivo de backup inválido.');}finally{event.target.value='';}};reader.readAsText(file);
   }
 
   initTheme();
