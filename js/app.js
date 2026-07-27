@@ -8,7 +8,8 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     ['versaoFinal','Versão final gerada'],
     ['envioCliente','Planilha enviada ao cliente'],
     ['aprovacaoCliente','Cliente aprovou'],
-    ['uploadPortal','Upload realizado no portal']
+    ['uploadPortal','Upload realizado no portal'],
+    ['verificarPaginaProduto','Verificar página do produto']
   ];
 
   let state = { version:4, clients:[], demandsByDate:{} };
@@ -157,6 +158,23 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     });
   }
 
+  function normalizeStateData(){
+    state.clients.forEach(client=>{
+      client.rounds=(client.rounds||[]).map(round=>{
+        round.steps=round.steps||{};
+        STEP_DEFINITIONS.forEach(([key])=>{
+          if(typeof round.steps[key]!=='boolean'){
+            // Preserva rounds já concluídos antes da inclusão da nova etapa.
+            round.steps[key]=(key==='verificarPaginaProduto'&&round.steps.uploadPortal&&round.endDate)?true:false;
+          }
+        });
+        round.asins=round.asins||[];
+        round.links=round.links||{planilha1A:'',planilha1B:'',planilha1C:'',final:''};
+        return round;
+      });
+    });
+  }
+
   function load(){
     try{
       const raw=localStorage.getItem(STORAGE_KEY);
@@ -173,6 +191,8 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
           }
         }
       }
+      normalizeStateData();
+      save();
     }catch(error){
       console.error(error);
       alert('Não foi possível carregar os dados salvos. Um novo banco local será iniciado.');
@@ -212,7 +232,8 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   }
   function calculateRoundStatus(round){
     const s=round.steps||{};
-    if(s.uploadPortal) return 'concluido';
+    if(s.verificarPaginaProduto) return 'concluido';
+    if(s.uploadPortal) return 'verificacao-pagina-pendente';
     if(s.aprovacaoCliente) return 'upload-pendente';
     if(s.envioCliente) return 'aguardando-cliente';
     if(Object.values(s).some(Boolean)) return 'em-progresso';
@@ -224,10 +245,10 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     return calculateRoundStatus(round);
   }
   function statusLabel(status){
-    return ({'sem-round':'Sem round ativo','nao-iniciado':'Não iniciado','em-progresso':'Em progresso','aguardando-cliente':'Aguardando cliente','upload-pendente':'Upload pendente','concluido':'Concluído'})[status]||status;
+    return ({'sem-round':'Sem round ativo','nao-iniciado':'Não iniciado','em-progresso':'Em progresso','aguardando-cliente':'Aguardando cliente','upload-pendente':'Upload pendente','verificacao-pagina-pendente':'Verificar página','concluido':'Concluído'})[status]||status;
   }
   function statusChip(status){
-    const cls=status==='concluido'?'chip-success':status==='aguardando-cliente'?'chip-warning':status==='upload-pendente'?'chip-danger':status==='em-progresso'?'chip-info':'chip-neutral';
+    const cls=status==='concluido'?'chip-success':status==='aguardando-cliente'?'chip-warning':status==='upload-pendente'||status==='verificacao-pagina-pendente'?'chip-danger':status==='em-progresso'?'chip-info':'chip-neutral';
     return `<span class="chip ${cls}">${statusLabel(status)}</span>`;
   }
 
@@ -310,6 +331,42 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     save(); selectedClientId=clientId; showView('client');
   }
 
+  function getRoundPendingTasks(){
+    const tasks=[];
+    state.clients.forEach(client=>{
+      const round=activeRound(client);
+      if(!round)return;
+      STEP_DEFINITIONS.forEach(([key,label],index)=>{
+        if(!round.steps?.[key]){
+          tasks.push({
+            id:`round-${round.id}-${key}`,
+            clientId:client.id,
+            roundId:round.id,
+            stepKey:key,
+            label,
+            order:index,
+            clientName:client.name,
+            roundNumber:round.number,
+            dueDate:round.dueDate||''
+          });
+        }
+      });
+    });
+    return tasks.sort((a,b)=>(a.dueDate||'9999-12-31').localeCompare(b.dueDate||'9999-12-31')||a.clientName.localeCompare(b.clientName)||a.order-b.order);
+  }
+
+  function completeRoundTask(clientId,roundId,key){
+    const round=findClient(clientId)?.rounds.find(r=>r.id===roundId);
+    if(!round)return;
+    round.steps[key]=true;
+    round.status=calculateRoundStatus(round);
+    round.updatedAt=new Date().toISOString();
+    if(key==='verificarPaginaProduto'&&!round.endDate)round.endDate=localDateKey();
+    save();
+    renderDashboard();
+    toast('Etapa concluída e removida das tarefas diárias.');
+  }
+
   function renderDaily(){
     const date=localDateKey();
     if(!state.demandsByDate[date]) state.demandsByDate[date]={required:{emailMorning:false,emailLunch:false,emailEvening:false,priorities:false},items:[]};
@@ -325,11 +382,18 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       <div class="task-grid">${required.map(([key,label,desc])=>`<label class="task-card ${memo.required[key]?'done':'pending'}"><input type="checkbox" ${memo.required[key]?'checked':''} onchange="toggleRequired('${key}')"><div><strong style="font-size:13px">${label}</strong><div style="font-size:11px;color:var(--muted);margin-top:3px">${desc}</div></div></label>`).join('')}</div>
       <div style="margin-top:10px"><div class="progress"><div class="progress-fill" style="width:${done/required.length*100}%"></div></div><div class="progress-text">${done}/${required.length} tarefas obrigatórias concluídas</div></div>`;
 
-    document.getElementById('daily-demands').innerHTML=memo.items.length?memo.items.map(item=>`<div class="memo-item ${item.done?'done':''}">
+    const roundTasks=getRoundPendingTasks();
+    const roundTasksHtml=roundTasks.length?`<div class="auto-task-heading"><strong>Pendências automáticas dos rounds</strong><span>${roundTasks.length} etapa(s) pendente(s)</span></div>${roundTasks.map(task=>`<div class="memo-item system-task">
+      <input type="checkbox" onchange="completeRoundTask('${task.clientId}','${task.roundId}','${task.stepKey}')">
+      <span><strong>${esc(task.clientName)} — Round ${task.roundNumber}</strong><small>${esc(task.label)}${task.dueDate?` • Prazo: ${formatDate(task.dueDate)}`:''}</small></span>
+      <button class="btn btn-secondary btn-small" onclick="openClient('${task.clientId}')">Abrir</button>
+    </div>`).join('')}`:'';
+    const manualHtml=memo.items.length?`<div class="auto-task-heading manual-heading"><strong>Demandas adicionadas manualmente</strong><span>${memo.items.length} item(ns)</span></div>${memo.items.map(item=>`<div class="memo-item ${item.done?'done':''}">
       <input type="checkbox" ${item.done?'checked':''} onchange="toggleDemand('${item.id}')">
       <span style="${item.done?'text-decoration:line-through;color:#98a2b3':''}">${item.priority==='alta'?'🔴 ':''}${esc(item.text)}</span>
       <button class="btn btn-danger btn-small" onclick="deleteDemand('${item.id}')">Excluir</button>
-    </div>`).join(''):'<div class="empty" style="padding:18px">Nenhuma demanda adicionada hoje.</div>';
+    </div>`).join('')}`:'';
+    document.getElementById('daily-demands').innerHTML=roundTasksHtml+manualHtml||'<div class="empty" style="padding:18px">Nenhuma demanda pendente hoje.</div>';
     save();
   }
 
@@ -411,8 +475,8 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   function toggleStep(clientId,roundId,key){
     const r=findClient(clientId)?.rounds.find(x=>x.id===roundId); if(!r)return;
     r.steps[key]=!r.steps[key]; r.status=calculateRoundStatus(r); r.updatedAt=new Date().toISOString();
-    if(r.steps.uploadPortal&&!r.endDate)r.endDate=localDateKey();
-    if(!r.steps.uploadPortal)r.endDate='';
+    if(r.steps.verificarPaginaProduto&&!r.endDate)r.endDate=localDateKey();
+    if(!r.steps.verificarPaginaProduto)r.endDate='';
     save(); renderClientDetail();
   }
   function deleteRound(clientId,roundId){
@@ -470,7 +534,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     save();closeModal();renderClientDetail();toast('Round atualizado.');
   }
 
-  function asinStatusLabel(s){return ({'fila':'Em fila','planilha-1a':'Planilha 1A','planilha-1b':'Planilha 1B','planilha-1c':'Planilha 1C','revisao-seo':'Revisão SEO','revisao-time':'Revisão interna','aguardando-cliente':'Aguardando cliente','aprovado':'Aprovado','upload-pendente':'Upload pendente','concluido':'Concluído'})[s]||s;}
+  function asinStatusLabel(s){return ({'fila':'Em fila','planilha-1a':'Planilha 1A','planilha-1b':'Planilha 1B','planilha-1c':'Planilha 1C','revisao-seo':'Revisão SEO','revisao-time':'Revisão interna','aguardando-cliente':'Aguardando cliente','aprovado':'Aprovado','upload-pendente':'Upload pendente','verificacao-pagina-pendente':'Verificar página','concluido':'Concluído'})[s]||s;}
   function openAsinForm(clientId,roundId,asinId=''){
     const round=findClient(clientId)?.rounds.find(r=>r.id===roundId); if(!round)return;
     const a=asinId?structuredClone(round.asins.find(x=>x.id===asinId)):{id:uid(),code:'',productName:'',salesShare:'',status:'fila',startDate:'',endDate:'',notes:''};
@@ -494,7 +558,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
 
   function renderToday(){
     const today=localDateKey();
-    const overdue=[],dueToday=[],waiting=[],uploads=[];
+    const overdue=[],dueToday=[],waiting=[],uploads=[],pageChecks=[];
     state.clients.forEach(c=>(c.rounds||[]).forEach(r=>{
       const status=calculateRoundStatus(r);
       const item={client:c,round:r};
@@ -502,6 +566,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       if(r.dueDate===today&&status!=='concluido')dueToday.push(item);
       if(status==='aguardando-cliente')waiting.push(item);
       if(status==='upload-pendente')uploads.push(item);
+      if(status==='verificacao-pagina-pendente')pageChecks.push(item);
     }));
     const reminders=state.clients.map(getNextRoundReminder).filter(Boolean);
     const nextOverdue=reminders.filter(r=>r.type==='overdue');
@@ -513,7 +578,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       nextRoundGroup('Começar próximo round hoje',nextToday,'Nenhum novo round previsto para hoje.'),
       nextRoundGroup('Próximos 3 dias',nextUpcoming,'Nenhum novo round previsto para os próximos 3 dias.'),
       nextRoundGroup('Conclusões sem data',missingDates,'Todos os rounds concluídos possuem data final.'),
-      todayGroup('Entregas atrasadas',overdue,'Nenhum round em andamento atrasado.'),todayGroup('Entregas que vencem hoje',dueToday,'Nenhum round em andamento vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.')
+      todayGroup('Entregas atrasadas',overdue,'Nenhum round em andamento atrasado.'),todayGroup('Entregas que vencem hoje',dueToday,'Nenhum round em andamento vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.'),todayGroup('Verificar página do produto',pageChecks,'Nenhuma verificação de página pendente.')
     ].join('');
   }
   function nextRoundGroup(title,items,emptyText){return `<div class="today-group"><div class="section-title">${title} (${items.length})</div>${items.length?items.map(r=>nextRoundAlertItem(r)).join(''):`<div class="empty" style="padding:18px">${emptyText}</div>`}</div>`;}
