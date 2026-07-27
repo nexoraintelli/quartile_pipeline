@@ -308,3 +308,82 @@ input[type="checkbox"]{
 @media (max-width:560px){
   .auto-task-heading{align-items:flex-start;flex-direction:column;gap:3px}
 }
+
+/* Pendências agrupadas por loja */
+.store-task-groups{
+  display:grid;
+  gap:8px;
+}
+.store-task-group{
+  border:1px solid var(--border);
+  border-radius:9px;
+  background:var(--surface);
+  overflow:hidden;
+}
+.store-task-group.has-overdue{
+  border-left:4px solid #d94b4b;
+}
+.store-task-group summary{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:10px 12px;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+}
+.store-task-group summary::-webkit-details-marker{display:none}
+.store-task-group summary::before{
+  content:'▶';
+  grid-column:1;
+  grid-row:1;
+  width:16px;
+  font-size:10px;
+  color:var(--muted);
+  transform:translateY(1px);
+}
+.store-task-group[open] summary::before{content:'▼'}
+.store-task-title{
+  grid-column:1;
+  grid-row:1;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+  padding-left:22px;
+}
+.store-task-title strong{
+  overflow-wrap:anywhere;
+}
+.store-task-title small{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:400;
+}
+.store-task-count{
+  grid-column:2;
+  grid-row:1;
+  white-space:nowrap;
+  font-size:11px;
+  font-weight:700;
+  padding:4px 8px;
+  border-radius:999px;
+  background:var(--danger);
+  color:var(--danger-text);
+}
+.store-task-body{
+  display:grid;
+  gap:6px;
+  padding:0 10px 10px;
+  border-top:1px solid var(--border);
+  padding-top:8px;
+}
+.store-task-group .system-task{
+  border-left:0;
+}
+:root[data-theme="dark"] .store-task-group{background:#131d26}
+@media(max-width:560px){
+  .store-task-group summary{grid-template-columns:minmax(0,1fr)}
+  .store-task-count{grid-column:1;grid-row:2;justify-self:start;margin-left:22px}
+}
