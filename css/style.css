@@ -280,3 +280,31 @@ input[type="checkbox"]{
 .notice-upcoming{border-left:5px solid var(--primary);background:var(--info)}
 .notice-missing{border-left:5px solid #8a6d3b;background:var(--warning)}
 @media(max-width:720px){.next-round-item,.next-round-heading{align-items:flex-start;flex-direction:column}.next-round-item .inline-actions{width:100%;flex-wrap:wrap}}
+
+/* Pendências automáticas dos rounds */
+.auto-task-heading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin:12px 0 8px;
+  padding:8px 10px;
+  border-radius:7px;
+  background:var(--danger);
+  color:var(--danger-text);
+  font-size:12px;
+}
+.auto-task-heading.manual-heading{
+  background:var(--info);
+  color:var(--info-text);
+}
+.system-task{
+  border-left:4px solid var(--danger-text);
+  background:var(--surface);
+}
+.system-task span{display:flex;flex-direction:column;gap:3px}
+.system-task span small{font-size:11px;color:var(--muted);font-weight:400}
+:root[data-theme="dark"] .system-task{background:#131d26}
+@media (max-width:560px){
+  .auto-task-heading{align-items:flex-start;flex-direction:column;gap:3px}
+}
