@@ -424,3 +424,44 @@ input[type="checkbox"]{
   .completed-task-item{grid-template-columns:auto minmax(0,1fr)}
   .completed-task-item .btn{grid-column:2;justify-self:start}
 }
+
+.calendar-pending-count{
+  display:block;
+  margin-top:3px;
+  font-size:10px;
+  font-weight:700;
+  color:var(--danger,#b42318);
+}
+.calendar-subheading{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:16px 0 8px;
+  color:var(--primary);
+  font-size:13px;
+}
+.calendar-demand input[type="checkbox"]{
+  width:17px;
+  height:17px;
+  flex:0 0 17px;
+  margin:0;
+}
+.calendar-demand.is-done strong{
+  text-decoration:line-through;
+  color:var(--muted);
+}
+.calendar-status-badge{
+  flex:0 0 auto;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:700;
+}
+.calendar-status-badge.pending{
+  background:var(--warning-soft,#fff4ce);
+  color:var(--warning-text,#7a4d00);
+}
+.calendar-status-badge.done{
+  background:var(--success-soft,#dcfce7);
+  color:var(--success-text,#166534);
+}
