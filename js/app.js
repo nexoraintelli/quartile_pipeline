@@ -451,17 +451,35 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   }
   function addDemand(){
     const input=document.getElementById('new-demand'); const text=input.value.trim(); if(!text)return;
-    state.demandsByDate[localDateKey()].items.push({id:uid(),text,priority:document.getElementById('demand-priority').value,done:false});
+    const date=localDateKey();
+    if(!state.demandsByDate[date]) state.demandsByDate[date]={required:{emailMorning:false,emailLunch:false,emailEvening:false,priorities:false},items:[]};
+    state.demandsByDate[date].items.push({id:uid(),text,priority:document.getElementById('demand-priority').value,done:false,createdAt:new Date().toISOString(),completedAt:''});
     input.value=''; save(); renderDaily();
+    if(document.getElementById('calendar-view')&&!document.getElementById('calendar-view').classList.contains('hidden'))renderCalendar();
+    toast('Demanda registrada no calendário de hoje.');
+  }
+  function setDemandDone(date,id,done){
+    const item=state.demandsByDate?.[date]?.items?.find(i=>i.id===id);
+    if(!item)return;
+    item.done=done;
+    item.completedAt=done?new Date().toISOString():'';
+    if(done) addCompletedRecord({date,text:item.text,sourceType:'daily-demand',sourceId:`demand-${id}`});
+    else removeCompletedRecord(`demand-${id}`);
+    save();
   }
   function toggleDemand(id){
     const date=localDateKey();
-    const item=state.demandsByDate[date].items.find(i=>i.id===id);
+    const item=state.demandsByDate?.[date]?.items?.find(i=>i.id===id);
     if(!item)return;
-    item.done=!item.done;
-    if(item.done) addCompletedRecord({date,text:item.text,sourceType:'daily-demand',sourceId:`demand-${id}`});
-    else removeCompletedRecord(`demand-${id}`);
-    save(); renderDaily();
+    setDemandDone(date,id,!item.done);
+    renderDaily();
+  }
+  function toggleCalendarDemand(date,id){
+    const item=state.demandsByDate?.[date]?.items?.find(i=>i.id===id);
+    if(!item)return;
+    setDemandDone(date,id,!item.done);
+    renderCalendar();
+    if(date===localDateKey())renderDaily();
   }
   function deleteDemand(id){ state.demandsByDate[localDateKey()].items=state.demandsByDate[localDateKey()].items.filter(i=>i.id!==id); removeCompletedRecord(`demand-${id}`); save(); renderDaily(); }
 
@@ -622,6 +640,12 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const text=date.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
     return text.charAt(0).toUpperCase()+text.slice(1);
   }
+  function calendarDemandItems(date){
+    return state.demandsByDate?.[date]?.items||[];
+  }
+  function calendarOtherCompletedItems(date){
+    return (state.completedByDate?.[date]||[]).filter(item=>item.sourceType!=='daily-demand');
+  }
   function renderCalendar(){
     const year=calendarCursor.getFullYear();
     const month=calendarCursor.getMonth();
@@ -637,10 +661,14 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const today=localDateKey();
     document.getElementById('calendar-grid').innerHTML=cells.map(cell=>{
       const key=localDateKey(cell.date);
-      const count=(state.completedByDate[key]||[]).length;
+      const demands=calendarDemandItems(key);
+      const other=calendarOtherCompletedItems(key);
+      const count=demands.length+other.length;
+      const pending=demands.filter(item=>!item.done).length;
       return `<button class="calendar-day ${cell.outside?'outside':''} ${key===today?'today':''} ${key===calendarSelectedDate?'selected':''}" onclick="selectCalendarDate('${key}')">
         <span class="calendar-day-number">${cell.date.getDate()}</span>
-        ${count?`<span class="calendar-task-count">${count} concluída${count===1?'':'s'}</span>`:''}
+        ${count?`<span class="calendar-task-count">${count} tarefa${count===1?'':'s'}</span>`:''}
+        ${pending?`<span class="calendar-pending-count">${pending} pendente${pending===1?'':'s'}</span>`:''}
       </button>`;
     }).join('');
     renderCalendarDay();
@@ -648,12 +676,19 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
   function renderCalendarDay(){
     const date=parseLocalDate(calendarSelectedDate)||new Date();
     document.getElementById('calendar-selected-title').textContent=date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-    const items=(state.completedByDate[calendarSelectedDate]||[]).slice().sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
-    document.getElementById('calendar-day-items').innerHTML=items.length?`<div class="completed-task-list">${items.map(item=>`<div class="completed-task-item">
+    const demands=calendarDemandItems(calendarSelectedDate).slice().sort((a,b)=>(a.createdAt||'').localeCompare(b.createdAt||''));
+    const completed=calendarOtherCompletedItems(calendarSelectedDate).slice().sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+    const demandsHtml=demands.length?`<div class="calendar-subheading"><strong>Demandas registradas</strong><span>${demands.length}</span></div><div class="completed-task-list">${demands.map(item=>`<div class="completed-task-item calendar-demand ${item.done?'is-done':'is-pending'}">
+      <input type="checkbox" ${item.done?'checked':''} onchange="toggleCalendarDemand('${calendarSelectedDate}','${item.id}')">
+      <div><strong>${item.priority==='alta'?'🔴 ':''}${esc(item.text)}</strong><small>${item.done?'Concluída e registrada':'Pendente'}${item.completedAt?` • ${new Date(item.completedAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}</small></div>
+      <span class="calendar-status-badge ${item.done?'done':'pending'}">${item.done?'Concluída':'Pendente'}</span>
+    </div>`).join('')}</div>`:'';
+    const completedHtml=completed.length?`<div class="calendar-subheading"><strong>Outras conclusões</strong><span>${completed.length}</span></div><div class="completed-task-list">${completed.map(item=>`<div class="completed-task-item">
       <span class="completed-check">✓</span>
-      <div><strong>${esc(item.text)}</strong><small>${item.sourceType==='round-step'?'Etapa de round':item.sourceType==='daily-demand'?'Demanda diária':'Registro manual'}</small></div>
+      <div><strong>${esc(item.text)}</strong><small>${item.sourceType==='round-step'?'Etapa de round':'Registro manual'}</small></div>
       <button class="btn btn-danger btn-small" onclick="deleteCompletedTask('${calendarSelectedDate}','${item.id}')">Excluir</button>
-    </div>`).join('')}</div>`:'<div class="empty calendar-empty">Nenhuma tarefa concluída neste dia.</div>';
+    </div>`).join('')}</div>`:'';
+    document.getElementById('calendar-day-items').innerHTML=demandsHtml+completedHtml||'<div class="empty calendar-empty">Nenhuma tarefa registrada neste dia.</div>';
   }
   function selectCalendarDate(date){
     calendarSelectedDate=date;
