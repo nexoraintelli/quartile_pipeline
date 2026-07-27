@@ -62,6 +62,48 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const [y,m,d]=value.split('-').map(Number);
     return new Date(y,m-1,d).toLocaleDateString('pt-BR');
   }
+  function parseLocalDate(value){
+    if(!value) return null;
+    const [y,m,d]=value.split('-').map(Number);
+    return new Date(y,m-1,d);
+  }
+  function addMonthsClamped(date,months){
+    const result=new Date(date.getFullYear(),date.getMonth(),1);
+    const targetMonth=date.getMonth()+months;
+    result.setFullYear(date.getFullYear()+Math.floor(targetMonth/12));
+    result.setMonth(((targetMonth%12)+12)%12);
+    const lastDay=new Date(result.getFullYear(),result.getMonth()+1,0).getDate();
+    result.setDate(Math.min(date.getDate(),lastDay));
+    return result;
+  }
+  function nextRoundDate(endDate,frequency){
+    const date=parseLocalDate(endDate); if(!date)return '';
+    const next=new Date(date);
+    if(frequency==='semanal') next.setDate(next.getDate()+7);
+    else if(frequency==='bimestral') return localDateKey(addMonthsClamped(date,2));
+    else if(frequency==='trimestral') return localDateKey(addMonthsClamped(date,3));
+    else return localDateKey(addMonthsClamped(date,1));
+    return localDateKey(next);
+  }
+  function frequencyLabel(value){
+    return ({semanal:'Semanal',mensal:'Mensal',bimestral:'Bimestral',trimestral:'Trimestral'})[value]||value||'Mensal';
+  }
+  function daysFromToday(value){
+    const date=parseLocalDate(value); if(!date)return null;
+    const today=parseLocalDate(localDateKey());
+    return Math.round((date-today)/86400000);
+  }
+  function getNextRoundReminder(client){
+    const rounds=client.rounds||[];
+    if(!rounds.length)return null;
+    const last=rounds[rounds.length-1];
+    if(calculateRoundStatus(last)!=='concluido')return null;
+    if(!last.endDate)return {client,round:last,nextDate:'',days:null,type:'missing-date'};
+    const nextDate=nextRoundDate(last.endDate,client.frequency||'mensal');
+    const days=daysFromToday(nextDate);
+    const type=days<0?'overdue':days===0?'today':days<=3?'upcoming':'future';
+    return {client,round:last,nextDate,days,type};
+  }
   function esc(value=''){
     return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   }
@@ -204,6 +246,7 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     document.getElementById('kpi-progress').textContent=clients.filter(c=>calculateClientStatus(c)==='em-progresso').length;
     document.getElementById('kpi-waiting').textContent=clients.filter(c=>calculateClientStatus(c)==='aguardando-cliente').length;
     document.getElementById('kpi-done').textContent=clients.reduce((sum,c)=>sum+(c.rounds||[]).filter(r=>calculateRoundStatus(r)==='concluido').length,0);
+    renderNextRoundAlerts();
 
     const search=(document.getElementById('client-search')?.value||'').trim().toLowerCase();
     const filter=document.getElementById('client-filter')?.value||'todos';
@@ -237,6 +280,34 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
         </div>
       </div>`;
     }).join(''):'<div class="empty">Nenhum cliente encontrado.</div>';
+  }
+
+  function renderNextRoundAlerts(){
+    const container=document.getElementById('next-round-alerts'); if(!container)return;
+    const reminders=state.clients.map(getNextRoundReminder).filter(Boolean);
+    const actionable=reminders.filter(r=>['overdue','today','upcoming','missing-date'].includes(r.type));
+    if(!actionable.length){container.innerHTML='';container.classList.add('hidden');return;}
+    const order={overdue:0,today:1,upcoming:2,'missing-date':3};
+    actionable.sort((a,b)=>(order[a.type]-order[b.type])||(a.nextDate||'').localeCompare(b.nextDate||''));
+    container.classList.remove('hidden');
+    container.innerHTML=`<div class="next-round-panel"><div class="next-round-heading"><div><strong>Próximos rounds</strong><span>${actionable.length} cliente(s) precisam de atenção</span></div><button class="btn btn-secondary btn-small" onclick="showView('today')">Ver agenda</button></div><div class="next-round-list">${actionable.map(nextRoundAlertItem).join('')}</div></div>`;
+  }
+  function nextRoundAlertItem(reminder){
+    const {client,round,nextDate,days,type}=reminder;
+    let title='',detail='',cls='notice-upcoming';
+    if(type==='overdue'){title=`Round ${round.number+1} atrasado há ${Math.abs(days)} dia(s)`;detail=`Deveria ter começado em ${formatDate(nextDate)}`;cls='notice-overdue';}
+    else if(type==='today'){title=`Começar o Round ${round.number+1} hoje`;detail=`Periodicidade ${frequencyLabel(client.frequency)} • ${formatDate(nextDate)}`;cls='notice-today';}
+    else if(type==='upcoming'){title=`Round ${round.number+1} começa em ${days} dia(s)`;detail=`Data prevista: ${formatDate(nextDate)} • ${frequencyLabel(client.frequency)}`;}
+    else {title='Informe a data de conclusão do último round';detail=`Round ${round.number} está concluído, mas sem data final.`;cls='notice-missing';}
+    return `<div class="next-round-item ${cls}"><div><strong>${esc(client.name)}</strong><p>${esc(title)}<br><span>${esc(detail)}</span></p></div><div class="inline-actions"><button class="btn btn-secondary btn-small" onclick="openClient('${client.id}')">Abrir cliente</button>${type!=='missing-date'?`<button class="btn btn-primary btn-small" onclick="startScheduledRound('${client.id}')">Iniciar round</button>`:''}</div></div>`;
+  }
+  function startScheduledRound(clientId){
+    const c=findClient(clientId); if(!c)return;
+    const reminder=getNextRoundReminder(c);
+    addRound(clientId);
+    const created=c.rounds[c.rounds.length-1];
+    if(reminder?.nextDate) created.startDate=localDateKey();
+    save(); selectedClientId=clientId; showView('client');
   }
 
   function renderDaily(){
@@ -432,10 +503,20 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       if(status==='aguardando-cliente')waiting.push(item);
       if(status==='upload-pendente')uploads.push(item);
     }));
+    const reminders=state.clients.map(getNextRoundReminder).filter(Boolean);
+    const nextOverdue=reminders.filter(r=>r.type==='overdue');
+    const nextToday=reminders.filter(r=>r.type==='today');
+    const nextUpcoming=reminders.filter(r=>r.type==='upcoming');
+    const missingDates=reminders.filter(r=>r.type==='missing-date');
     document.getElementById('today-content').innerHTML=[
-      todayGroup('Atrasadas',overdue,'Nenhum round atrasado.'),todayGroup('Vencem hoje',dueToday,'Nenhum round vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.')
+      nextRoundGroup('Próximos rounds atrasados',nextOverdue,'Nenhum próximo round atrasado.'),
+      nextRoundGroup('Começar próximo round hoje',nextToday,'Nenhum novo round previsto para hoje.'),
+      nextRoundGroup('Próximos 3 dias',nextUpcoming,'Nenhum novo round previsto para os próximos 3 dias.'),
+      nextRoundGroup('Conclusões sem data',missingDates,'Todos os rounds concluídos possuem data final.'),
+      todayGroup('Entregas atrasadas',overdue,'Nenhum round em andamento atrasado.'),todayGroup('Entregas que vencem hoje',dueToday,'Nenhum round em andamento vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.')
     ].join('');
   }
+  function nextRoundGroup(title,items,emptyText){return `<div class="today-group"><div class="section-title">${title} (${items.length})</div>${items.length?items.map(r=>nextRoundAlertItem(r)).join(''):`<div class="empty" style="padding:18px">${emptyText}</div>`}</div>`;}
   function todayGroup(title,items,emptyText){return `<div class="today-group"><div class="section-title">${title} (${items.length})</div>${items.length?items.map(({client,round})=>`<div class="today-item"><div><strong>${esc(client.name)} — Round ${round.number}</strong><p>Prazo: ${formatDate(round.dueDate)} • ${statusLabel(calculateRoundStatus(round))}</p></div><button class="btn btn-primary btn-small" onclick="openClient('${client.id}')">Abrir cliente</button></div>`).join(''):`<div class="empty" style="padding:18px">${emptyText}</div>`}</div>`;}
 
   function openModal(html){document.getElementById('modal-content').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
