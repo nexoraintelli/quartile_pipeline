@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/30415357/README.md)
 # Quartile Pipeline
 
 Sistema web para organizar clientes, rounds de otimização, ASINs, tarefas diárias e o fluxo de aprovação e upload.
@@ -38,3 +39,7 @@ Os dados são armazenados no `localStorage` do navegador. Portanto:
 - recomenda-se usar regularmente a opção de exportar backup.
 
 Para uso em equipe e sincronização entre computadores, a próxima evolução recomendada é conectar o sistema a um banco de dados, como Supabase.
+
+## Pendências automáticas
+
+Cada round possui a etapa final **Verificar página do produto**, exibida logo após o upload. Todas as etapas não marcadas do round ativo aparecem automaticamente no Daily Memo. Ao concluir uma tarefa automática no Daily Memo, a etapa correspondente também é marcada no round.
