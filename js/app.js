@@ -383,11 +383,30 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       <div style="margin-top:10px"><div class="progress"><div class="progress-fill" style="width:${done/required.length*100}%"></div></div><div class="progress-text">${done}/${required.length} tarefas obrigatórias concluídas</div></div>`;
 
     const roundTasks=getRoundPendingTasks();
-    const roundTasksHtml=roundTasks.length?`<div class="auto-task-heading"><strong>Pendências automáticas dos rounds</strong><span>${roundTasks.length} etapa(s) pendente(s)</span></div>${roundTasks.map(task=>`<div class="memo-item system-task">
-      <input type="checkbox" onchange="completeRoundTask('${task.clientId}','${task.roundId}','${task.stepKey}')">
-      <span><strong>${esc(task.clientName)} — Round ${task.roundNumber}</strong><small>${esc(task.label)}${task.dueDate?` • Prazo: ${formatDate(task.dueDate)}`:''}</small></span>
-      <button class="btn btn-secondary btn-small" onclick="openClient('${task.clientId}')">Abrir</button>
-    </div>`).join('')}`:'';
+    const groupedRoundTasks=roundTasks.reduce((groups,task)=>{
+      if(!groups[task.clientId]) groups[task.clientId]={clientId:task.clientId,clientName:task.clientName,tasks:[]};
+      groups[task.clientId].tasks.push(task);
+      return groups;
+    },{});
+    const roundTaskGroups=Object.values(groupedRoundTasks).sort((a,b)=>a.clientName.localeCompare(b.clientName));
+    const roundTasksHtml=roundTasks.length?`<div class="auto-task-heading"><strong>Pendências automáticas dos rounds</strong><span>${roundTasks.length} etapa(s) em ${roundTaskGroups.length} loja(s)</span></div>
+      <div class="store-task-groups">${roundTaskGroups.map(group=>{
+        const first=group.tasks[0];
+        const overdue=group.tasks.some(task=>task.dueDate&&daysFromToday(task.dueDate)<0);
+        return `<details class="store-task-group ${overdue?'has-overdue':''}">
+          <summary>
+            <span class="store-task-title"><strong>${esc(group.clientName)}</strong><small>Round ${first.roundNumber}${first.dueDate?` • Prazo: ${formatDate(first.dueDate)}`:''}</small></span>
+            <span class="store-task-count">${group.tasks.length} pendência(s)</span>
+          </summary>
+          <div class="store-task-body">
+            ${group.tasks.map(task=>`<div class="memo-item system-task">
+              <input type="checkbox" onchange="completeRoundTask('${task.clientId}','${task.roundId}','${task.stepKey}')">
+              <span><strong>${esc(task.label)}</strong>${task.dueDate?`<small>Prazo: ${formatDate(task.dueDate)}</small>`:''}</span>
+              <button class="btn btn-secondary btn-small" onclick="openClient('${task.clientId}')">Abrir</button>
+            </div>`).join('')}
+          </div>
+        </details>`;
+      }).join('')}</div>`:'';
     const manualHtml=memo.items.length?`<div class="auto-task-heading manual-heading"><strong>Demandas adicionadas manualmente</strong><span>${memo.items.length} item(ns)</span></div>${memo.items.map(item=>`<div class="memo-item ${item.done?'done':''}">
       <input type="checkbox" ${item.done?'checked':''} onchange="toggleDemand('${item.id}')">
       <span style="${item.done?'text-decoration:line-through;color:#98a2b3':''}">${item.priority==='alta'?'🔴 ':''}${esc(item.text)}</span>
