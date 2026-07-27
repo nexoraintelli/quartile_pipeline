@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quartile Pipeline</title>
-    <link rel="stylesheet" href="./css/style.css?v=5" />
+    <link rel="stylesheet" href="./css/style.css?v=6" />
 </head>
 <body>
 <div class="container">
@@ -12,6 +12,7 @@
     <div class="nav">
       <button class="btn btn-primary" onclick="showView('dashboard')">📊 Pipeline</button>
       <button class="btn btn-secondary" onclick="showView('today')">⚡ Hoje</button>
+      <button class="btn btn-secondary" onclick="showView('calendar')">🗓️ Calendário</button>
     </div>
     <div class="actions">
       <button id="theme-toggle" class="btn btn-secondary" onclick="toggleTheme()">🌙 Fundo escuro</button>
@@ -78,6 +79,40 @@
     <div id="today-content"></div>
   </section>
 
+  <section id="calendar-view" class="hidden">
+    <div class="page-header calendar-page-header">
+      <div>
+        <h1>Calendário de tarefas concluídas</h1>
+        <p>Registre e consulte o que foi finalizado em cada dia.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCompletedTaskForm()">+ Registrar tarefa concluída</button>
+    </div>
+    <div class="calendar-layout">
+      <div class="card calendar-card">
+        <div class="calendar-toolbar">
+          <button class="btn btn-secondary btn-small" onclick="changeCalendarMonth(-1)">←</button>
+          <strong id="calendar-month-title"></strong>
+          <button class="btn btn-secondary btn-small" onclick="changeCalendarMonth(1)">→</button>
+          <button class="btn btn-ghost btn-small" onclick="goCalendarToday()">Hoje</button>
+        </div>
+        <div class="calendar-weekdays">
+          <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+        </div>
+        <div id="calendar-grid" class="calendar-grid"></div>
+      </div>
+      <aside class="card calendar-day-panel">
+        <div class="calendar-day-heading">
+          <div>
+            <small>Dia selecionado</small>
+            <h2 id="calendar-selected-title"></h2>
+          </div>
+          <button class="btn btn-primary btn-small" onclick="openCompletedTaskForm(calendarSelectedDate)">+ Adicionar</button>
+        </div>
+        <div id="calendar-day-items"></div>
+      </aside>
+    </div>
+  </section>
+
   <section id="client-view" class="hidden">
     <div class="actions" style="margin-bottom:12px">
       <button class="btn btn-secondary" onclick="showView('dashboard')">← Voltar</button>
@@ -89,6 +124,6 @@
 <div id="modal" class="modal hidden"><div class="modal-content" id="modal-content"></div></div>
 <div id="toast" class="toast hidden"></div>
 
-<script src="./js/app.js?v=5"></script>
+<script src="./js/app.js?v=6"></script>
 </body>
 </html>
