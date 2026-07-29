@@ -749,8 +749,21 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
       todayGroup('Entregas atrasadas',overdue,'Nenhum round em andamento atrasado.'),todayGroup('Entregas que vencem hoje',dueToday,'Nenhum round em andamento vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.'),todayGroup('Verificar página do produto',pageChecks,'Nenhuma verificação de página pendente.')
     ].join('')}</div>`;
   }
-  function nextRoundGroup(title,items,emptyText){return `<div class="today-group"><div class="today-group-title"><span>${title}</span><strong>${items.length}</strong></div><div class="today-group-body">${items.length?items.map(r=>nextRoundAlertItem(r)).join(''):`<div class="today-empty">${emptyText}</div>`}</div></div>`;}
-  function todayGroup(title,items,emptyText){return `<div class="today-group"><div class="today-group-title"><span>${title}</span><strong>${items.length}</strong></div><div class="today-group-body">${items.length?items.map(({client,round})=>`<div class="today-item"><div class="today-item-text"><strong>${esc(client.name)} — Round ${round.number}</strong><p>${formatDate(round.dueDate)} • ${statusLabel(calculateRoundStatus(round))}</p></div><button class="btn btn-primary btn-small" onclick="openClient('${client.id}')">Abrir</button></div>`).join(''):`<div class="today-empty">${emptyText}</div>`}</div></div>`;}
+  function todayGroupId(title){return 'today-'+title.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
+  function toggleTodayGroup(groupId){
+    const group=document.getElementById(groupId);
+    if(!group)return;
+    const expanded=group.classList.toggle('expanded');
+    const button=group.querySelector('.today-toggle');
+    if(button){button.textContent=expanded?'Recolher':'Expandir';button.setAttribute('aria-expanded',String(expanded));}
+  }
+  function todayGroupShell(title,items,bodyHtml,emptyText){
+    const id=todayGroupId(title);
+    const content=items.length?bodyHtml:`<div class="today-empty">${emptyText}</div>`;
+    return `<div class="today-group" id="${id}"><div class="today-group-title"><button class="today-group-heading" onclick="toggleTodayGroup('${id}')" aria-controls="${id}-body"><span>${title}</span><strong>${items.length}</strong></button><button class="today-toggle" onclick="toggleTodayGroup('${id}')" aria-expanded="false">Expandir</button></div><div class="today-group-body" id="${id}-body">${content}</div></div>`;
+  }
+  function nextRoundGroup(title,items,emptyText){return todayGroupShell(title,items,items.map(r=>nextRoundAlertItem(r)).join(''),emptyText);}
+  function todayGroup(title,items,emptyText){return todayGroupShell(title,items,items.map(({client,round})=>`<div class="today-item"><div class="today-item-text"><strong>${esc(client.name)} — Round ${round.number}</strong><p>${formatDate(round.dueDate)} • ${statusLabel(calculateRoundStatus(round))}</p></div><button class="btn btn-primary btn-small" onclick="openClient('${client.id}')">Abrir</button></div>`).join(''),emptyText);}
 
   function openModal(html){document.getElementById('modal-content').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
   function closeModal(){document.getElementById('modal').classList.add('hidden');document.getElementById('modal-content').innerHTML='';}
