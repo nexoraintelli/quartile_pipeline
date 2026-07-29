@@ -549,3 +549,45 @@ input[type="checkbox"]{
   .today-group-body{max-height:none}
   .today-item{flex-direction:row}
 }
+
+/* Tela Hoje: grupos recolhidos por padrão */
+.today-group-title{
+  padding:0;
+  border-bottom:0;
+}
+.today-group-heading{
+  flex:1;
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 8px 10px 12px;
+  border:0;
+  background:transparent;
+  color:var(--primary);
+  font:inherit;
+  font-weight:800;
+  text-align:left;
+  cursor:pointer;
+}
+.today-group-heading:hover{background:var(--surface-soft,#f7f9fc)}
+.today-toggle{
+  flex:0 0 auto;
+  margin-right:8px;
+  padding:5px 8px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface);
+  color:var(--primary);
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.today-toggle:hover{background:var(--info)}
+.today-group-body{
+  display:none;
+  border-top:1px solid var(--border);
+}
+.today-group.expanded .today-group-body{display:block}
+.today-group.expanded .today-toggle{background:var(--info)}
