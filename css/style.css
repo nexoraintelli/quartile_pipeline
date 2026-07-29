@@ -465,3 +465,87 @@ input[type="checkbox"]{
   background:var(--success-soft,#dcfce7);
   color:var(--success-text,#166534);
 }
+
+/* Tela Hoje: quadros compactos lado a lado */
+.today-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:12px;
+  align-items:start;
+}
+.today-group{
+  margin:0;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  min-width:0;
+}
+.today-group-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+  color:var(--primary);
+  font-size:13px;
+  font-weight:800;
+}
+.today-group-title strong{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:24px;
+  height:24px;
+  padding:0 7px;
+  border-radius:999px;
+  background:var(--info);
+  color:var(--primary);
+  font-size:11px;
+}
+.today-group-body{
+  padding:8px;
+  max-height:330px;
+  overflow:auto;
+}
+.today-item{
+  gap:8px;
+  padding:8px;
+  margin-bottom:6px;
+  border-radius:7px;
+  box-shadow:none;
+}
+.today-item:last-child{margin-bottom:0}
+.today-item-text{min-width:0;flex:1}
+.today-item strong{font-size:12px;display:block;white-space:normal;overflow-wrap:anywhere}
+.today-item p{font-size:11px;line-height:1.3;margin-top:2px}
+.today-item .btn{padding:6px 9px;font-size:10px;flex:0 0 auto}
+.today-empty{
+  min-height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px;
+  text-align:center;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.35;
+}
+#today-content .next-round-item{
+  display:block;
+  padding:8px;
+  margin-bottom:6px;
+}
+#today-content .next-round-item:last-child{margin-bottom:0}
+#today-content .next-round-item strong{font-size:12px}
+#today-content .next-round-item p{font-size:11px;line-height:1.3;margin-top:2px}
+#today-content .next-round-item p span{font-size:10px}
+#today-content .next-round-item .inline-actions{margin-top:7px;gap:5px}
+#today-content .next-round-item .btn{padding:6px 8px;font-size:10px}
+@media(max-width:680px){
+  .today-grid{grid-template-columns:1fr}
+  .today-group-body{max-height:none}
+  .today-item{flex-direction:row}
+}
