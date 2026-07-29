@@ -741,16 +741,16 @@ const STORAGE_KEY = 'quartile_pipeline_v4';
     const nextToday=reminders.filter(r=>r.type==='today');
     const nextUpcoming=reminders.filter(r=>r.type==='upcoming');
     const missingDates=reminders.filter(r=>r.type==='missing-date');
-    document.getElementById('today-content').innerHTML=[
+    document.getElementById('today-content').innerHTML=`<div class="today-grid">${[
       nextRoundGroup('Próximos rounds atrasados',nextOverdue,'Nenhum próximo round atrasado.'),
       nextRoundGroup('Começar próximo round hoje',nextToday,'Nenhum novo round previsto para hoje.'),
       nextRoundGroup('Próximos 3 dias',nextUpcoming,'Nenhum novo round previsto para os próximos 3 dias.'),
       nextRoundGroup('Conclusões sem data',missingDates,'Todos os rounds concluídos possuem data final.'),
       todayGroup('Entregas atrasadas',overdue,'Nenhum round em andamento atrasado.'),todayGroup('Entregas que vencem hoje',dueToday,'Nenhum round em andamento vence hoje.'),todayGroup('Aguardando cliente',waiting,'Nenhum cliente aguardando aprovação.'),todayGroup('Upload pendente',uploads,'Nenhum upload pendente.'),todayGroup('Verificar página do produto',pageChecks,'Nenhuma verificação de página pendente.')
-    ].join('');
+    ].join('')}</div>`;
   }
-  function nextRoundGroup(title,items,emptyText){return `<div class="today-group"><div class="section-title">${title} (${items.length})</div>${items.length?items.map(r=>nextRoundAlertItem(r)).join(''):`<div class="empty" style="padding:18px">${emptyText}</div>`}</div>`;}
-  function todayGroup(title,items,emptyText){return `<div class="today-group"><div class="section-title">${title} (${items.length})</div>${items.length?items.map(({client,round})=>`<div class="today-item"><div><strong>${esc(client.name)} — Round ${round.number}</strong><p>Prazo: ${formatDate(round.dueDate)} • ${statusLabel(calculateRoundStatus(round))}</p></div><button class="btn btn-primary btn-small" onclick="openClient('${client.id}')">Abrir cliente</button></div>`).join(''):`<div class="empty" style="padding:18px">${emptyText}</div>`}</div>`;}
+  function nextRoundGroup(title,items,emptyText){return `<div class="today-group"><div class="today-group-title"><span>${title}</span><strong>${items.length}</strong></div><div class="today-group-body">${items.length?items.map(r=>nextRoundAlertItem(r)).join(''):`<div class="today-empty">${emptyText}</div>`}</div></div>`;}
+  function todayGroup(title,items,emptyText){return `<div class="today-group"><div class="today-group-title"><span>${title}</span><strong>${items.length}</strong></div><div class="today-group-body">${items.length?items.map(({client,round})=>`<div class="today-item"><div class="today-item-text"><strong>${esc(client.name)} — Round ${round.number}</strong><p>${formatDate(round.dueDate)} • ${statusLabel(calculateRoundStatus(round))}</p></div><button class="btn btn-primary btn-small" onclick="openClient('${client.id}')">Abrir</button></div>`).join(''):`<div class="today-empty">${emptyText}</div>`}</div></div>`;}
 
   function openModal(html){document.getElementById('modal-content').innerHTML=html;document.getElementById('modal').classList.remove('hidden');}
   function closeModal(){document.getElementById('modal').classList.add('hidden');document.getElementById('modal-content').innerHTML='';}
